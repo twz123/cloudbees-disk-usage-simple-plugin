@@ -59,29 +59,12 @@ public class UsageComputation {
         // used to throttle IO
         final AtomicLong chunkStartTime = new AtomicLong(System.currentTimeMillis());
 
-        // used to lock this thread if there's a FS freeze ongoing
-        final AtomicLong writableLastCheckTime = new AtomicLong(System.currentTimeMillis());
-
         final Stack<AtomicLong> computeStack = new Stack<>();
         computeStack.push(new AtomicLong(0));
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                 computeStack.push(new AtomicLong(0));
-
-                // check every 10 seconds that the process can write on JENKINS_HOME
-                // this will lock this thread if the filesystem is frozen
-                // this is to speed up the FS freeze operation which is otherwise slowed down
-                if (System.currentTimeMillis() - writableLastCheckTime.get() > 10000) {
-                    writableLastCheckTime.set(System.currentTimeMillis());
-                    FilePath jenkinsHome = Jenkins.get().getRootPath();
-                    try {
-                        jenkinsHome.touch(System.currentTimeMillis());
-                    } catch (InterruptedException e) {
-                        logger.log(Level.INFO, "Exception while touching JENKINS_HOME", e);
-                    }
-                }
-
                 return FileVisitResult.CONTINUE;
             }
 
